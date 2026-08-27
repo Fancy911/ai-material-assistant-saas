@@ -1,0 +1,18 @@
+{
+  "name": "ai-material-assistant-saas",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.5.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @ai-material/api test",
+    "test:e2e": "pnpm --filter @ai-material/api test:e2e",
+    "dev:api": "pnpm --filter @ai-material/api start:dev",
+    "smoke:canxiang": "node scripts/canxiang-smoke.mjs",
+    "db:generate": "pnpm --filter @ai-material/api prisma:generate",
+    "db:migrate": "pnpm --filter @ai-material/api prisma:migrate",
+    "db:seed": "pnpm --filter @ai-material/api prisma:seed"
+  }
+}
