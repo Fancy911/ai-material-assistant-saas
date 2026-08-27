@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { Prisma, ResolveStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { seal, urlHash } from '../common/security';
+import { seal, signMedia, urlHash } from '../common/security';
 import { CanxiangProvider, extractSupportedUrl, MockProvider, ResolverProvider } from './providers';
 
 @Injectable()
@@ -41,6 +41,5 @@ export class ResolveService {
       if (error instanceof ForbiddenException) throw error; throw new ServiceUnavailableException(code);
     }
   }
-  async getJob(tenantId: string, userId: string, id: string) { const job = await this.prisma.resolveJob.findFirst({ where: { id, tenantId, userId }, include: { media: { select: { id: true, type: true, metaJson: true } } } }); if (!job) throw new ForbiddenException('JOB_NOT_FOUND'); return job; }
+  async getJob(tenantId: string, userId: string, id: string) { const job = await this.prisma.resolveJob.findFirst({ where: { id, tenantId, userId }, include: { media: { select: { id: true, type: true, metaJson: true } } } }); if (!job) throw new ForbiddenException('JOB_NOT_FOUND'); const expiry = Date.now() + Number(process.env.MEDIA_PROXY_TTL_SECONDS || 600) * 1000; const secret = process.env.MEDIA_PROXY_SIGNING_KEY || 'development-only-change-me'; const baseUrl = process.env.APP_PUBLIC_URL || 'http://127.0.0.1:3000'; return { ...job, media: job.media.map((media) => ({ ...media, proxyUrl: `${baseUrl}/api/media/${media.id}?expires=${expiry}&sig=${signMedia(`${media.id}:${userId}:${tenantId}:${expiry}`, secret)}` })) }; }
 }
-

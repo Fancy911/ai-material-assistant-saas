@@ -8,6 +8,7 @@ import { ResolveService } from './resolve/resolve.service';
 import { ResolveController } from './resolve/resolve.controller';
 import { HealthController } from './health.controller';
 import { AuthController } from './auth/auth.controller';
+import { MediaController } from './media/media.controller';
 
-@Module({ imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../../.env', '.env'] }), JwtModule.register({ global: true, secret: process.env.JWT_SECRET || 'development-only-change-me' })], controllers: [HealthController, ResolveController, AuthController], providers: [PrismaService, SessionGuard, MockProvider, CanxiangProvider, ResolveService] })
+@Module({ imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../../.env', '.env'] }), JwtModule.register({ global: true, secret: process.env.JWT_SECRET || 'development-only-change-me' })], controllers: [HealthController, ResolveController, AuthController, MediaController], providers: [PrismaService, SessionGuard, MockProvider, CanxiangProvider, ResolveService] })
 export class AppModule {}
