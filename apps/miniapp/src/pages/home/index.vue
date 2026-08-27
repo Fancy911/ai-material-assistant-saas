@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { detectPlatform, extractUrl, platformNames } from '../../services/platform';
-const input = ref(''); const isParsing = ref(false); const platform = computed(() => detectPlatform(input.value));
+import { ensureSession, getMe, resolveMaterial } from '../../services/api';
+const input = ref(''); const isParsing = ref(false); const points = ref(0); const platform = computed(() => detectPlatform(input.value));
 const canResolve = computed(() => Boolean(platform.value) && !isParsing.value);
 function paste() { uni.getClipboardData({ success: ({ data }) => { input.value = data; }, fail: () => uni.showToast({ title: '请手动粘贴链接', icon: 'none' }) }); }
-function resolve() { if (!canResolve.value) return; isParsing.value = true; setTimeout(() => { isParsing.value = false; uni.navigateTo({ url: `/pages/result/index?platform=${platform.value}&url=${encodeURIComponent(extractUrl(input.value) || '')}` }); }, 650); }
+async function resolve() { if (!canResolve.value) return; isParsing.value = true; try { const job = await resolveMaterial(input.value); points.value -= 1; uni.navigateTo({ url: `/pages/result/index?id=${job.id}&platform=${job.platform}` }); } catch (error) { const message = (error as { message?: string })?.message || '暂时没有解析成功，请检查链接或稍后重试'; uni.showToast({ title: message, icon: 'none' }); } finally { isParsing.value = false; } }
 function goMe() { uni.switchTab({ url: '/pages/me/index' }); }
+onMounted(async () => { try { await ensureSession(); points.value = (await getMe()).pointsBalance; } catch { uni.showToast({ title: '服务连接失败，请检查 API', icon: 'none' }); } });
 </script>
 
 <template>
@@ -14,7 +16,7 @@ function goMe() { uni.switchTab({ url: '/pages/me/index' }); }
     <view class="hero"><view class="eyebrow">LINK · MEDIA · HELPER</view><text class="title">AI素材助手</text><text class="subtitle">链接提取高清原图 / 视频素材</text></view>
     <view class="platform-panel"><text class="section-label">支持平台</text><view class="platforms"><view v-for="item in [['豆','豆包'],['抖','抖音'],['红','小红书'],['千','千问']]" :key="item[1]" class="platform"><view class="mark">{{ item[0] }}</view><text>{{ item[1] }}</text></view></view></view>
     <view class="resolve-card"><view class="card-top"><text>粘贴分享链接</text><text class="paste" @click="paste">粘贴</text></view><textarea v-model="input" :maxlength="4000" auto-height placeholder="粘贴豆包、抖音、小红书、千问分享链接或口令" /><view class="hint"><text v-if="platform">已识别：{{ platformNames[platform] }}</text><text v-else-if="input">暂不支持该链接</text><text v-else>自动识别，无需手动选择平台</text></view><button class="primary" :class="{ disabled: !canResolve }" :loading="isParsing" @click="resolve">{{ isParsing ? '正在解析素材…' : '一键提取素材' }}</button></view>
-    <view class="quota"><view><text class="quota-number">10</text><text> 我的点数</text></view><text class="redeem" @click="goMe">兑换码 ›</text></view>
+    <view class="quota"><view><text class="quota-number">{{ points }}</text><text> 我的点数</text></view><text class="redeem" @click="goMe">兑换码 ›</text></view>
     <view class="recent"><text class="section-label">最近提取</text><view class="empty"><text class="empty-icon">✦</text><text>还没有提取记录</text><text class="empty-sub">粘贴一条分享链接开始吧</text></view></view>
   </view>
 </template>
