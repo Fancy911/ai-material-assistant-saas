@@ -27,10 +27,9 @@
 ## 本地运行
 
 1. 安装并打开 Docker Desktop。
-2. 执行 `docker compose -p ai_material up -d postgres` 启动 PostgreSQL。
-3. 复制 `.env.example` 为本地 `.env`，设置本地随机密钥；不要提交这个文件。
-4. 执行 `pnpm db:migrate`、`pnpm db:seed`，然后执行 `pnpm dev:api`。
-5. 访问 `http://localhost:3000/health`，应返回 `{"status":"ok"}`。
+2. 复制 `.env.example` 为本地 `.env`，设置本地随机密钥与智凌 Key；不要提交这个文件。
+3. 执行 `docker compose -p ai_material up -d --build` 启动 PostgreSQL 和 API。
+4. 访问 `http://localhost:3000/health`，应返回 `{"status":"ok"}`。
 
 Seed 测试密码是 `ChangeMe_2026!`；仅限本地开发，部署前必须修改。总管理员账号为 `superadmin`，租户管理员为 `tenant-a-admin` / `tenant-b-admin`。
 
@@ -38,6 +37,6 @@ Seed 测试密码是 `ChangeMe_2026!`；仅限本地开发，部署前必须修�
 
 ### 服务商切换与密钥
 
-开发时 `RESOLVER_MODE="mock"` 始终使用模拟服务。部署时去掉该值后，系统选择数据库中状态为“启用”、优先级数字最小的服务商；总管理员可通过后台 API 调整启用状态和优先级。
+开发时 `RESOLVER_MODE="mock"` 始终使用模拟服务。使用后台选中的真实服务商时设为 `RESOLVER_MODE="database"`；系统会选择数据库中状态为“启用”、优先级数字最小的服务商，总管理员可通过后台 API 调整启用状态和优先级。
 
 智凌使用 `GET https://api.17zhiling.com/api/video/parse-video-url-times`，以查询参数 `key` 和 `url` 调用。只在本机根目录 `.env` 填写 `ZHILING_API_BASE_URL` 与 `ZHILING_API_KEY`；密钥不要发到聊天、不要写进 README、不要提交到 Git。服务端仅在总管理员后台启用后请求智凌，媒体通过本项目签名代理返回小程序。
