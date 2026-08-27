@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getJob } from '../../services/api';
-const query = ref<{ platform?: string; id?: string }>({}); const platform = computed(() => ({ doubao: '豆包', douyin: '抖音', xhs: '小红书', qianwen: '千问' }[query.value.platform || ''] || '素材'));
+const query = ref<{ platform?: string; id?: string }>({}); const platform = computed(() => ({ doubao: '豆包', douyin: '抖音', xhs: '小红书', qianwen: '千问', wechat_channels: '微信视频号', jimeng: '即梦', kuaishou: '快手' }[query.value.platform || ''] || '素材'));
 const mediaCount = ref(0); const isSuccess = ref(false); const media = ref<{ type: string; proxyUrl: string } | null>(null);
 onLoad(async (options) => { const received = (options || {}) as { platform?: string; id?: string }; query.value = received; if (!received.id) return; try { const job = await getJob(received.id); mediaCount.value = job.media.length; isSuccess.value = job.status === 'SUCCESS'; media.value = job.media[0] || null; } catch { uni.showToast({ title: '无法读取解析结果', icon: 'none' }); } });
 function save() { if (!media.value) return; const token = uni.getStorageSync('access_token'); uni.downloadFile({ url: media.value.proxyUrl, header: { Authorization: `Bearer ${token}` }, success: ({ tempFilePath }) => { if (media.value?.type === 'IMAGE') uni.saveImageToPhotosAlbum({ filePath: tempFilePath, success: () => uni.showToast({ title: '已保存到相册' }) }); else uni.saveVideoToPhotosAlbum({ filePath: tempFilePath, success: () => uni.showToast({ title: '已保存到相册' }) }); }, fail: () => uni.showToast({ title: '下载失败，请重试', icon: 'none' }) }); }

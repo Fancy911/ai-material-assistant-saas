@@ -40,4 +40,4 @@ Seed 测试密码是 `ChangeMe_2026!`；仅限本地开发，部署前必须修�
 
 开发时 `RESOLVER_MODE="mock"` 始终使用模拟服务。部署时去掉该值后，系统选择数据库中状态为“启用”、优先级数字最小的服务商；总管理员可通过后台 API 调整启用状态和优先级。
 
-智凌账号开通后，只在本机根目录 `.env` 填写 `ZHILING_API_BASE_URL` 与 `ZHILING_API_KEY`，再提供其官方接口文档或接口页面地址。我会依据真实文档接入，完成四平台冒烟测试后再在后台启用它。密钥不要发到聊天、不要写进 README、不要提交到 Git。
+智凌使用 `GET https://api.17zhiling.com/api/video/parse-video-url-times`，以查询参数 `key` 和 `url` 调用。只在本机根目录 `.env` 填写 `ZHILING_API_BASE_URL` 与 `ZHILING_API_KEY`；密钥不要发到聊天、不要写进 README、不要提交到 Git。服务端仅在总管理员后台启用后请求智凌，媒体通过本项目签名代理返回小程序。
