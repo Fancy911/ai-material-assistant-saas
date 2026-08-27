@@ -9,7 +9,8 @@ import { ResolveController } from './resolve/resolve.controller';
 import { HealthController } from './health.controller';
 import { AuthController } from './auth/auth.controller';
 import { MediaController } from './media/media.controller';
+import { MediaCompatibilityService } from './media/media-compatibility.service';
 import { AdminProviderController } from './admin/admin.controller';
 
-@Module({ imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../../.env', '.env'] }), JwtModule.registerAsync({ global: true, inject: [ConfigService], useFactory: (config: ConfigService) => ({ secret: config.get<string>('JWT_SECRET') || 'development-only-change-me', signOptions: { expiresIn: '1h' } }) })], controllers: [HealthController, ResolveController, AuthController, MediaController, AdminProviderController], providers: [PrismaService, SessionGuard, MockProvider, CanxiangProvider, ZhilingProvider, ResolveService] })
+@Module({ imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../../.env', '.env'] }), JwtModule.registerAsync({ global: true, inject: [ConfigService], useFactory: (config: ConfigService) => ({ secret: config.get<string>('JWT_SECRET') || 'development-only-change-me', signOptions: { expiresIn: '1h' } }) })], controllers: [HealthController, ResolveController, AuthController, MediaController, AdminProviderController], providers: [PrismaService, SessionGuard, MockProvider, CanxiangProvider, ZhilingProvider, ResolveService, MediaCompatibilityService] })
 export class AppModule {}
