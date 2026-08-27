@@ -23,3 +23,12 @@ export class CanxiangProvider implements ResolverProvider {
     return { success: true, platform: platform as ResolveResult['platform'], mediaType: media.length > 1 ? 'gallery' : media[0].type, title: typeof raw.title === 'string' ? raw.title : null, author: null, coverUrl: null, media, durationSec: null, provider: 'canxiang', rawCode: String(response.status), errorCode: null };
   }
 }
+@Injectable()
+export class ZhilingProvider implements ResolverProvider {
+  async resolve(platform: string, url: string): Promise<ResolveResult> {
+    // The vendor's private endpoint and response schema are configured only after account activation.
+    // Keeping this explicit prevents sending user links to an invented or unverified endpoint.
+    if (!process.env.ZHILING_API_KEY || !process.env.ZHILING_API_BASE_URL) throw new Error('PROVIDER_NOT_CONFIGURED');
+    throw new Error('PROVIDER_INTEGRATION_PENDING');
+  }
+}

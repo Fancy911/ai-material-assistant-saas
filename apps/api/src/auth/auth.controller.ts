@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, UseGuards, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import argon2 from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CurrentSession, Session, SessionGuard } from './auth';
@@ -17,6 +18,15 @@ export class AuthController {
     const user = await this.prisma.user.upsert({ where: { tenantId_openid: { tenantId, openid } }, update: { lastActiveAt: new Date() }, create: { tenantId, openid, pointsBalance: setting?.initialPoints ?? 10, lastActiveAt: new Date() } });
     const accessToken = await this.jwt.signAsync({ sub: user.id, tenantId, role: 'USER' }, { expiresIn: '1h' });
     return { accessToken, user: { id: user.id, pointsBalance: user.pointsBalance } };
+  }
+
+  @Post('auth/admin-login')
+  async adminLogin(@Body() body: { account?: string; password?: string }) {
+    if (!body.account || !body.password) throw new BadRequestException('INVALID_CREDENTIALS');
+    const admin = await this.prisma.tenantAdmin.findUnique({ where: { account: body.account.trim() } });
+    if (!admin || !(await argon2.verify(admin.passwordHash, body.password))) throw new UnauthorizedException('INVALID_CREDENTIALS');
+    const accessToken = await this.jwt.signAsync({ sub: admin.id, tenantId: admin.tenantId ?? undefined, role: admin.role }, { expiresIn: '1h' });
+    return { accessToken, admin: { id: admin.id, account: admin.account, role: admin.role } };
   }
 
   @Get('me') @UseGuards(SessionGuard)

@@ -6,7 +6,7 @@
 
 ## 项目状态
 
-正在按 PRD v1.1 执行 DEV-00 → DEV-09：先完成 CanxiangProvider 的四平台验证，再交付正式多租户 MVP。
+正在按 PRD v1.1 执行 DEV-00 → DEV-09：先完成 Provider 的四平台验证，再交付正式多租户 MVP。
 
 ## 文档
 
@@ -36,6 +36,8 @@ Seed 测试密码是 `ChangeMe_2026!`；仅限本地开发，部署前必须修�
 
 本地 Seed 兑换码为 `WELCOME10`（仅演示租户 A，一次性 10 点）；生产环境必须通过 Tenant Admin 批量生成，不应保留这个测试码。
 
-### 残像 Token
+### 服务商切换与密钥
 
-在残像后台**新建或轮换** Token 后，只在本机根目录 `.env` 设定 `CANXIANG_TOKEN`，将 `RESOLVER_MODE` 改成 `canxiang`，并在同一安全环境填写四个 `CANXIANG_SAMPLE_*` 测试链接。随后运行 `pnpm smoke:canxiang`。Token 不要发到聊天、不要写进 README、不要提交到 Git。
+开发时 `RESOLVER_MODE="mock"` 始终使用模拟服务。部署时去掉该值后，系统选择数据库中状态为“启用”、优先级数字最小的服务商；总管理员可通过后台 API 调整启用状态和优先级。
+
+智凌账号开通后，只在本机根目录 `.env` 填写 `ZHILING_API_BASE_URL` 与 `ZHILING_API_KEY`，再提供其官方接口文档或接口页面地址。我会依据真实文档接入，完成四平台冒烟测试后再在后台启用它。密钥不要发到聊天、不要写进 README、不要提交到 Git。

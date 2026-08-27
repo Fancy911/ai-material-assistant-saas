@@ -12,7 +12,8 @@ async function main() {
   await prisma.tenantAdmin.upsert({ where: { account: 'tenant-b-admin' }, update: { passwordHash }, create: { account: 'tenant-b-admin', passwordHash, role: 'TENANT_ADMIN', tenantId: tenantB.id } });
   await prisma.user.upsert({ where: { tenantId_openid: { tenantId: tenantA.id, openid: 'mock-user-a' } }, update: {}, create: { tenantId: tenantA.id, openid: 'mock-user-a', pointsBalance: 10 } });
   await prisma.user.upsert({ where: { tenantId_openid: { tenantId: tenantB.id, openid: 'mock-user-b' } }, update: {}, create: { tenantId: tenantB.id, openid: 'mock-user-b', pointsBalance: 10 } });
-  await prisma.provider.upsert({ where: { code: 'canxiang' }, update: {}, create: { code: 'canxiang', name: 'Canxiang API', baseUrl: 'https://api.cxzja.cn', costConfig: { doubao: 0.001, douyin: 0, xhs: 0, qianwen: 0 } } });
+  await prisma.provider.upsert({ where: { code: 'canxiang' }, update: { priority: 20 }, create: { code: 'canxiang', name: 'Canxiang API', baseUrl: 'https://api.cxzja.cn', priority: 20, costConfig: { doubao: 0.001, douyin: 0, xhs: 0, qianwen: 0 } } });
+  await prisma.provider.upsert({ where: { code: 'zhiling' }, update: { priority: 1 }, create: { code: 'zhiling', name: 'Zhiling API', baseUrl: 'https://api.17zhiling.com', status: 'DISABLED', priority: 1, costConfig: {} } });
   const testCode = 'WELCOME10'; const codeHash = createHash('sha256').update(testCode).digest('hex');
   await prisma.redeemCode.upsert({ where: { codeHash }, update: {}, create: { tenantId: tenantA.id, codeHash, codeHint: 'WELCOME••10', points: 10 } });
 }

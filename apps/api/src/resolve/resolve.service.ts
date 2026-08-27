@@ -2,12 +2,18 @@ import { ForbiddenException, Injectable, ServiceUnavailableException } from '@ne
 import { Prisma, ResolveStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { seal, signMedia, urlHash } from '../common/security';
-import { CanxiangProvider, extractSupportedUrl, MockProvider, ResolverProvider } from './providers';
+import { CanxiangProvider, extractSupportedUrl, MockProvider, ResolverProvider, ZhilingProvider } from './providers';
 
 @Injectable()
 export class ResolveService {
-  constructor(private readonly prisma: PrismaService, private readonly mock: MockProvider, private readonly canxiang: CanxiangProvider) {}
-  private provider(): ResolverProvider { return process.env.RESOLVER_MODE === 'canxiang' ? this.canxiang : this.mock; }
+  constructor(private readonly prisma: PrismaService, private readonly mock: MockProvider, private readonly canxiang: CanxiangProvider, private readonly zhiling: ZhilingProvider) {}
+  private async provider(): Promise<ResolverProvider> {
+    if (process.env.RESOLVER_MODE === 'mock') return this.mock;
+    const active = await this.prisma.provider.findFirst({ where: { status: 'ENABLED' }, orderBy: [{ priority: 'asc' }, { code: 'asc' }] });
+    if (active?.code === 'zhiling') return this.zhiling;
+    if (active?.code === 'canxiang') return this.canxiang;
+    throw new Error('PROVIDER_NOT_CONFIGURED');
+  }
   async submit(tenantId: string, userId: string, input: string, idempotencyKey?: string) {
     const matched = extractSupportedUrl(input); if (!matched) throw new ForbiddenException('UNSUPPORTED_PLATFORM');
     const now = new Date(); const [tenant, user, setting, cap] = await Promise.all([this.prisma.tenant.findUnique({ where: { id: tenantId } }), this.prisma.user.findUnique({ where: { id: userId } }), this.prisma.tenantSetting.findUnique({ where: { tenantId } }), this.prisma.tenantCapability.findUnique({ where: { tenantId_capability: { tenantId, capability: matched.platform } } })]);
@@ -22,7 +28,7 @@ export class ResolveService {
     const job = await this.prisma.resolveJob.create({ data: { tenantId, userId, platform: matched.platform, urlHash: fingerprint, urlHost: new URL(matched.url).host, status: 'RUNNING', idempotencyKey } });
     const started = Date.now();
     try {
-      const result = await this.provider().resolve(matched.platform, matched.url); const latencyMs = Date.now() - started;
+      const result = await (await this.provider()).resolve(matched.platform, matched.url); const latencyMs = Date.now() - started;
       if (!result.success || !result.media.length) { return this.prisma.resolveJob.update({ where: { id: job.id }, data: { status: 'FAILED', errorCode: result.errorCode || 'MEDIA_NOT_FOUND', provider: result.provider, latencyMs, completedAt: new Date() } }); }
       const cost = setting?.pointCost ?? 1; const secret = process.env.MEDIA_PROXY_SIGNING_KEY || 'development-only-change-me';
       return await this.prisma.$transaction(async (tx) => {
@@ -36,7 +42,7 @@ export class ResolveService {
         return tx.resolveJob.update({ where: { id: job.id }, data: { status: 'SUCCESS', mediaType: result.mediaType, title: result.title, provider: result.provider, latencyMs, completedAt: new Date() }, include: { media: true } });
       });
     } catch (error) {
-      const code = error instanceof ForbiddenException ? String(error.message) : error instanceof Error && error.name === 'TimeoutError' ? 'PROVIDER_TIMEOUT' : 'PROVIDER_ERROR';
+      const code = error instanceof ForbiddenException ? String(error.message) : error instanceof Error && error.name === 'TimeoutError' ? 'PROVIDER_TIMEOUT' : error instanceof Error && ['PROVIDER_NOT_CONFIGURED', 'PROVIDER_INTEGRATION_PENDING'].includes(error.message) ? error.message : 'PROVIDER_ERROR';
       await this.prisma.resolveJob.update({ where: { id: job.id }, data: { status: 'FAILED', errorCode: code, latencyMs: Date.now() - started, completedAt: new Date() } });
       if (error instanceof ForbiddenException) throw error; throw new ServiceUnavailableException(code);
     }
