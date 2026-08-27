@@ -5,7 +5,7 @@ import { ensureSession, getMe, resolveMaterial } from '../../services/api';
 const input = ref(''); const isParsing = ref(false); const points = ref(0); const platform = computed(() => detectPlatform(input.value));
 const canResolve = computed(() => Boolean(platform.value) && !isParsing.value);
 function paste() { uni.getClipboardData({ success: ({ data }) => { input.value = data; }, fail: () => uni.showToast({ title: '请手动粘贴链接', icon: 'none' }) }); }
-async function resolve() { if (!canResolve.value) return; isParsing.value = true; try { const job = await resolveMaterial(input.value); points.value -= 1; uni.navigateTo({ url: `/pages/result/index?id=${job.id}&platform=${job.platform}` }); } catch (error) { const message = (error as { message?: string })?.message || '暂时没有解析成功，请检查链接或稍后重试'; uni.showToast({ title: message, icon: 'none' }); } finally { isParsing.value = false; } }
+async function resolve() { if (!canResolve.value) return; isParsing.value = true; try { const job = await resolveMaterial(input.value); points.value -= 1; uni.navigateTo({ url: `/pages/result/index?id=${job.id}&platform=${job.platform}` }); } catch (error) { const message = (error as { message?: string })?.message || '暂时没有解析成功，请检查链接或稍后重试'; if (message.includes('NO_POINTS')) { uni.showModal({ title: '点数不足', content: '可使用兑换码补充点数；当前为免费内测。', confirmText: '去兑换', success: ({ confirm }) => { if (confirm) goMe(); } }); } else uni.showToast({ title: message, icon: 'none' }); } finally { isParsing.value = false; } }
 function goMe() { uni.switchTab({ url: '/pages/me/index' }); }
 onMounted(async () => { try { await ensureSession(); points.value = (await getMe()).pointsBalance; } catch { uni.showToast({ title: '服务连接失败，请检查 API', icon: 'none' }); } });
 </script>

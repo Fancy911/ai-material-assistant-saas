@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
+import { createHash } from 'node:crypto';
 const prisma = new PrismaClient();
 async function main() {
   const passwordHash = await argon2.hash('ChangeMe_2026!');
@@ -12,6 +13,7 @@ async function main() {
   await prisma.user.upsert({ where: { tenantId_openid: { tenantId: tenantA.id, openid: 'mock-user-a' } }, update: {}, create: { tenantId: tenantA.id, openid: 'mock-user-a', pointsBalance: 10 } });
   await prisma.user.upsert({ where: { tenantId_openid: { tenantId: tenantB.id, openid: 'mock-user-b' } }, update: {}, create: { tenantId: tenantB.id, openid: 'mock-user-b', pointsBalance: 10 } });
   await prisma.provider.upsert({ where: { code: 'canxiang' }, update: {}, create: { code: 'canxiang', name: 'Canxiang API', baseUrl: 'https://api.cxzja.cn', costConfig: { doubao: 0.001, douyin: 0, xhs: 0, qianwen: 0 } } });
+  const testCode = 'WELCOME10'; const codeHash = createHash('sha256').update(testCode).digest('hex');
+  await prisma.redeemCode.upsert({ where: { codeHash }, update: {}, create: { tenantId: tenantA.id, codeHash, codeHint: 'WELCOME••10', points: 10 } });
 }
 main().finally(() => prisma.$disconnect());
-

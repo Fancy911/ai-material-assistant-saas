@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, BadRequestException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CurrentSession, Session, SessionGuard } from './auth';
@@ -26,4 +27,25 @@ export class AuthController {
 
   @Get('me/history') @UseGuards(SessionGuard)
   history(@CurrentSession() session: Session) { return this.prisma.resolveJob.findMany({ where: { userId: session.sub, tenantId: session.tenantId }, orderBy: { createdAt: 'desc' }, take: 30, select: { id: true, platform: true, status: true, mediaType: true, title: true, errorCode: true, createdAt: true } }); }
+
+  @Post('redeem') @UseGuards(SessionGuard)
+  async redeem(@CurrentSession() session: Session, @Body() body: { code?: string }) {
+    const code = body.code?.trim().toUpperCase(); if (!code || code.length > 128) throw new BadRequestException('INVALID_REDEEM_CODE');
+    const codeHash = createHash('sha256').update(code).digest('hex');
+    return this.prisma.$transaction(async (tx) => {
+      const redeemCode = await tx.redeemCode.findFirst({ where: { tenantId: session.tenantId, codeHash, status: 'UNUSED', OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } });
+      if (!redeemCode) throw new BadRequestException('REDEEM_CODE_UNAVAILABLE');
+      const claimed = await tx.redeemCode.updateMany({ where: { id: redeemCode.id, tenantId: session.tenantId, status: 'UNUSED' }, data: { status: 'REDEEMED', redeemedById: session.sub, redeemedAt: new Date() } });
+      if (claimed.count !== 1) throw new BadRequestException('REDEEM_CODE_ALREADY_USED');
+      const user = await tx.user.update({ where: { id: session.sub }, data: { pointsBalance: { increment: redeemCode.points } } });
+      await tx.pointsLedger.create({ data: { tenantId: session.tenantId!, userId: session.sub, delta: redeemCode.points, reason: 'REDEEM_CODE', refType: 'redeem_code', refId: redeemCode.id } });
+      return { pointsAdded: redeemCode.points, pointsBalance: user.pointsBalance };
+    });
+  }
+
+  @Post('paywall-intent') @UseGuards(SessionGuard)
+  async paywallIntent(@CurrentSession() session: Session, @Body() body: { packageSelected?: string }) {
+    await this.prisma.event.create({ data: { tenantId: session.tenantId!, userId: session.sub, eventName: 'paywall_intent', metaJson: { packageSelected: body.packageSelected || 'unknown' } } });
+    return { recorded: true };
+  }
 }

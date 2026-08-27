@@ -34,6 +34,8 @@
 
 Seed 测试密码是 `ChangeMe_2026!`；仅限本地开发，部署前必须修改。总管理员账号为 `superadmin`，租户管理员为 `tenant-a-admin` / `tenant-b-admin`。
 
+本地 Seed 兑换码为 `WELCOME10`（仅演示租户 A，一次性 10 点）；生产环境必须通过 Tenant Admin 批量生成，不应保留这个测试码。
+
 ### 残像 Token
 
 在残像后台**新建或轮换** Token 后，只在本机根目录 `.env` 设定 `CANXIANG_TOKEN`，将 `RESOLVER_MODE` 改成 `canxiang`，并在同一安全环境填写四个 `CANXIANG_SAMPLE_*` 测试链接。随后运行 `pnpm smoke:canxiang`。Token 不要发到聊天、不要写进 README、不要提交到 Git。

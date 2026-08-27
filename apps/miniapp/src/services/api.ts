@@ -14,3 +14,5 @@ export async function resolveMaterial(input: string) { await ensureSession(); re
 export async function getJob(id: string) { await ensureSession(); return request<{ id: string; platform: string; status: string; title: string | null; mediaType: string | null; media: { id: string; type: string; proxyUrl: string; metaJson: Record<string, unknown> | null }[] }>(`/api/resolve/${id}`); }
 export async function getMe() { await ensureSession(); return request<{ pointsBalance: number; totalResolves: number; miniappName: string }>('/api/me'); }
 export async function getHistory() { await ensureSession(); return request<{ id: string; platform: string; status: string; mediaType: string | null; title: string | null; createdAt: string }[]>('/api/me/history'); }
+export async function redeemCode(code: string) { await ensureSession(); return request<{ pointsAdded: number; pointsBalance: number }>('/api/redeem', 'POST', { code }); }
+export async function recordPaywallIntent(packageSelected: string) { await ensureSession(); return request<{ recorded: boolean }>('/api/paywall-intent', 'POST', { packageSelected }); }
