@@ -1,18 +1,19 @@
-import { Controller, ForbiddenException, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Readable } from 'node:stream';
-import { CurrentSession, Session, SessionGuard } from '../auth/auth';
 import { ensureResolvedPublicHost, open, verifyMedia } from '../common/security';
 import { PrismaService } from '../prisma/prisma.service';
 
-@Controller('api/media') @UseGuards(SessionGuard)
+@Controller('api/media')
 export class MediaController {
   constructor(private readonly prisma: PrismaService) {}
   @Get(':id')
-  async proxy(@CurrentSession() session: Session, @Param('id') id: string, @Query('expires') expires: string, @Query('sig') signature: string, @Res() response: Response) {
+  async proxy(@Param('id') id: string, @Query('expires') expires: string, @Query('sig') signature: string, @Res() response: Response) {
     const expiry = Number(expires); if (!Number.isSafeInteger(expiry) || expiry < Date.now()) throw new ForbiddenException('MEDIA_TOKEN_EXPIRED');
-    const secret = process.env.MEDIA_PROXY_SIGNING_KEY || 'development-only-change-me'; verifyMedia(`${id}:${session.sub}:${session.tenantId}:${expiry}`, signature, secret);
-    const media = await this.prisma.resolveMedia.findFirst({ where: { id, job: { userId: session.sub, tenantId: session.tenantId, status: 'SUCCESS' } } }); if (!media) throw new ForbiddenException('MEDIA_NOT_FOUND');
+    const media = await this.prisma.resolveMedia.findFirst({ where: { id, job: { status: 'SUCCESS' } }, include: { job: { select: { userId: true, tenantId: true } } } }); if (!media) throw new ForbiddenException('MEDIA_NOT_FOUND');
+    // A native <video> request cannot carry the app's Authorization header. The
+    // short-lived HMAC therefore acts as this endpoint's scoped read credential.
+    const secret = process.env.MEDIA_PROXY_SIGNING_KEY || 'development-only-change-me'; verifyMedia(`${id}:${media.job.userId}:${media.job.tenantId}:${expiry}`, signature, secret);
     const sourceUrl = open(media.sourceUrlEnc, secret); await ensureResolvedPublicHost(sourceUrl);
     const upstream = await fetch(sourceUrl, { redirect: 'follow', signal: AbortSignal.timeout(20_000) }); if (!upstream.ok || !upstream.body) throw new ForbiddenException('MEDIA_UNAVAILABLE');
     const contentLength = Number(upstream.headers.get('content-length') || 0); const maxBytes = Number(process.env.MEDIA_PROXY_MAX_BYTES || 52_428_800); const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
