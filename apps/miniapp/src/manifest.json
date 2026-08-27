@@ -1,0 +1,2 @@
+{ "name": "AI素材助手", "appid": "__UNI__AIMATERIAL", "description": "链接提取高清原图 / 视频素材", "versionName": "0.1.0", "versionCode": "100", "mp-weixin": { "appid": "", "setting": { "urlCheck": false } } }
+

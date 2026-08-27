@@ -1,0 +1,14 @@
+{
+  "pages": [
+    { "path": "pages/home/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/result/index", "style": { "navigationBarTitleText": "提取结果", "navigationBarBackgroundColor": "#F7F8FB" } },
+    { "path": "pages/history/index", "style": { "navigationBarTitleText": "提取记录" } },
+    { "path": "pages/me/index", "style": { "navigationBarTitleText": "我的" } }
+  ],
+  "tabBar": { "color": "#8D8A97", "selectedColor": "#6F3FF5", "backgroundColor": "#FFFFFF", "borderStyle": "white", "list": [
+    { "pagePath": "pages/home/index", "text": "首页" },
+    { "pagePath": "pages/history/index", "text": "记录" },
+    { "pagePath": "pages/me/index", "text": "我的" }
+  ] }
+}
+
