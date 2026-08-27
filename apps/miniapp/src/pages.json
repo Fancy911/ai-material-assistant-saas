@@ -1,7 +1,7 @@
 {
   "pages": [
     { "path": "pages/home/index", "style": { "navigationStyle": "custom" } },
-    { "path": "pages/result/index", "style": { "navigationBarTitleText": "提取结果", "navigationBarBackgroundColor": "#F7F8FB" } },
+    { "path": "pages/result/index", "style": { "navigationStyle": "custom" } },
     { "path": "pages/history/index", "style": { "navigationBarTitleText": "提取记录" } },
     { "path": "pages/me/index", "style": { "navigationBarTitleText": "我的" } }
   ],
@@ -11,4 +11,3 @@
     { "pagePath": "pages/me/index", "text": "我的" }
   ] }
 }
-
