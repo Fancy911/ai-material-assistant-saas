@@ -17,9 +17,10 @@ export class ResolveService {
   private providerCost(provider: Provider | null, platform: string) { const config = provider?.costConfig as Record<string, unknown> | null; const value = config?.[platform] ?? config?.pricePerCall ?? 0; const cost = Number(value); return Number.isFinite(cost) && cost >= 0 ? cost : 0; }
   async submit(tenantId: string, userId: string, input: string, idempotencyKey?: string) {
     const matched = extractSupportedUrl(input); if (!matched) throw new ForbiddenException('UNSUPPORTED_PLATFORM');
-    const now = new Date(); const [tenant, user, setting, cap] = await Promise.all([this.prisma.tenant.findUnique({ where: { id: tenantId } }), this.prisma.user.findUnique({ where: { id: userId } }), this.prisma.tenantSetting.findUnique({ where: { tenantId } }), this.prisma.tenantCapability.findUnique({ where: { tenantId_capability: { tenantId, capability: matched.platform } } })]);
+    const now = new Date(); const [tenant, user, setting, cap, activation] = await Promise.all([this.prisma.tenant.findUnique({ where: { id: tenantId } }), this.prisma.user.findUnique({ where: { id: userId } }), this.prisma.tenantSetting.findUnique({ where: { tenantId } }), this.prisma.tenantCapability.findUnique({ where: { tenantId_capability: { tenantId, capability: matched.platform } } }), this.prisma.tenantActivationCode.findFirst({ where: { tenantId, status: 'ACTIVATED' }, select: { id: true } })]);
     if (!tenant || tenant.status !== 'ACTIVE') throw new ForbiddenException('TENANT_SUSPENDED');
     if (tenant.expiresAt && tenant.expiresAt <= now) throw new ForbiddenException('TENANT_EXPIRED');
+    if (!activation) throw new ForbiddenException('TENANT_SERVICE_INACTIVE');
     if (!cap?.enabled) throw new ForbiddenException('CAPABILITY_DISABLED');
     if (!user || user.status !== 'ACTIVE') throw new ForbiddenException('USER_DISABLED');
     const fingerprint = urlHash(matched.url);

@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto';
 const prisma = new PrismaClient();
 async function main() {
   const passwordHash = await argon2.hash('ChangeMe_2026!');
-  const tenantA = await prisma.tenant.upsert({ where: { id: 'tenant-demo-a' }, update: {}, create: { id: 'tenant-demo-a', name: '演示租户 A', quotaTotal: 1000, quotaRemaining: 1000 } });
-  const tenantB = await prisma.tenant.upsert({ where: { id: 'tenant-demo-b' }, update: {}, create: { id: 'tenant-demo-b', name: '隔离验证租户 B', quotaTotal: 1000, quotaRemaining: 1000 } });
+  const tenantA = await prisma.tenant.upsert({ where: { id: 'tenant-demo-a' }, update: { publicCode: 'baoxiaoyin', name: '包小印去水印' }, create: { id: 'tenant-demo-a', publicCode: 'baoxiaoyin', name: '包小印去水印', quotaTotal: 1000, quotaRemaining: 1000 } });
+  const tenantB = await prisma.tenant.upsert({ where: { id: 'tenant-demo-b' }, update: { publicCode: 'demo-b' }, create: { id: 'tenant-demo-b', publicCode: 'demo-b', name: '隔离验证租户 B', quotaTotal: 1000, quotaRemaining: 1000 } });
   const enabledCapabilities = ['doubao', 'douyin', 'xhs', 'qianwen', 'wechat_channels', 'jimeng', 'kuaishou', 'bilibili', 'xigua', 'weibo', 'haokan', 'huoshan', 'pipix', 'zuiyou', 'generic'];
   for (const tenant of [tenantA, tenantB]) { for (const capability of enabledCapabilities) await prisma.tenantCapability.upsert({ where: { tenantId_capability: { tenantId: tenant.id, capability } }, update: {}, create: { tenantId: tenant.id, capability, enabled: true } }); await prisma.tenantSetting.upsert({ where: { tenantId: tenant.id }, update: {}, create: { tenantId: tenant.id, initialPoints: 10, pointCost: 1 } }); }
   await prisma.tenantAdmin.upsert({ where: { account: 'superadmin' }, update: { passwordHash }, create: { account: 'superadmin', passwordHash, role: 'SUPER_ADMIN' } });

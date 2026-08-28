@@ -1,23 +1,43 @@
-import { Body, Controller, Get, Post, UseGuards, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, BadRequestException, UnauthorizedException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import * as argon2 from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CurrentSession, Session, SessionGuard } from './auth';
+import { open } from '../common/security';
+
+const secretKey = () => process.env.SECRET_ENCRYPTION_KEY || process.env.MEDIA_PROXY_SIGNING_KEY || 'development-only-change-me';
 
 @Controller('api')
 export class AuthController {
   constructor(private readonly prisma: PrismaService, private readonly jwt: JwtService) {}
 
   @Post('auth/wechat-login')
-  async wechatLogin(@Body() body: { code?: string }) {
-    // P0 local development only. Production exchanges a WeChat code server-side.
-    const tenantId = process.env.MOCK_LOGIN_TENANT_ID || 'tenant-demo-a';
-    const openid = `mock-${(body.code || 'anonymous').slice(0, 48)}`;
-    const setting = await this.prisma.tenantSetting.findUnique({ where: { tenantId } });
+  async wechatLogin(@Body() body: { code?: string; tenantCode?: string }) {
+    const tenantCode = body.tenantCode?.trim().toLowerCase();
+    if (!tenantCode || !/^[a-z0-9-]{3,64}$/.test(tenantCode)) throw new BadRequestException('INVALID_TENANT_CODE');
+    if (!body.code?.trim() || body.code.length > 512) throw new BadRequestException('INVALID_WECHAT_CODE');
+    const tenant = await this.prisma.tenant.findUnique({ where: { publicCode: tenantCode } });
+    if (!tenant) throw new UnauthorizedException('TENANT_NOT_FOUND');
+    const setting = await this.prisma.tenantSetting.findUnique({ where: { tenantId: tenant.id } });
+    let openid: string;
+    if (process.env.AUTH_MODE !== 'wechat') {
+      openid = `mock-${tenantCode}-${body.code.slice(0, 48)}`;
+    } else {
+      if (!setting?.appid || !setting.appsecretCiphertext) throw new ForbiddenException('TENANT_WECHAT_NOT_CONFIGURED');
+      let appsecret: string;
+      try { appsecret = open(setting.appsecretCiphertext, secretKey()); } catch { throw new ServiceUnavailableException('TENANT_WECHAT_SECRET_INVALID'); }
+      const url = new URL('https://api.weixin.qq.com/sns/jscode2session');
+      url.searchParams.set('appid', setting.appid); url.searchParams.set('secret', appsecret); url.searchParams.set('js_code', body.code); url.searchParams.set('grant_type', 'authorization_code');
+      let response: Response; let payload: { openid?: string; errcode?: number; errmsg?: string };
+      try { response = await fetch(url, { signal: AbortSignal.timeout(10_000) }); payload = await response.json() as typeof payload; } catch { throw new ServiceUnavailableException('WECHAT_LOGIN_UNAVAILABLE'); }
+      if (!response.ok || !payload.openid) throw new UnauthorizedException(payload.errmsg || 'WECHAT_LOGIN_FAILED');
+      openid = payload.openid;
+    }
+    const tenantId = tenant.id;
     const user = await this.prisma.user.upsert({ where: { tenantId_openid: { tenantId, openid } }, update: { lastActiveAt: new Date() }, create: { tenantId, openid, pointsBalance: setting?.initialPoints ?? 10, lastActiveAt: new Date() } });
     const accessToken = await this.jwt.signAsync({ sub: user.id, tenantId, role: 'USER' }, { expiresIn: '1h' });
-    return { accessToken, user: { id: user.id, pointsBalance: user.pointsBalance } };
+    return { accessToken, user: { id: user.id, pointsBalance: user.pointsBalance }, tenant: { code: tenant.publicCode, name: setting?.miniappName || tenant.name } };
   }
 
   @Post('auth/admin-login')
@@ -31,8 +51,11 @@ export class AuthController {
 
   @Get('me') @UseGuards(SessionGuard)
   async me(@CurrentSession() session: Session) {
-    const [user, setting, successCount] = await Promise.all([this.prisma.user.findFirstOrThrow({ where: { id: session.sub, tenantId: session.tenantId } }), this.prisma.tenantSetting.findUnique({ where: { tenantId: session.tenantId } }), this.prisma.resolveJob.count({ where: { userId: session.sub, tenantId: session.tenantId, status: 'SUCCESS' } })]);
-    return { id: user.id, pointsBalance: user.pointsBalance, miniappName: setting?.miniappName ?? 'AI素材助手', totalResolves: successCount };
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const tenantId = session.tenantId!;
+    const [user, setting, tenant, successCount, todaySuccess, activation] = await Promise.all([this.prisma.user.findFirstOrThrow({ where: { id: session.sub, tenantId } }), this.prisma.tenantSetting.findUnique({ where: { tenantId } }), this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { status: true, expiresAt: true } }), this.prisma.resolveJob.count({ where: { userId: session.sub, tenantId, status: 'SUCCESS' } }), this.prisma.resolveJob.count({ where: { userId: session.sub, tenantId, status: 'SUCCESS', createdAt: { gte: today } } }), this.prisma.tenantActivationCode.findFirst({ where: { tenantId, status: 'ACTIVATED' }, select: { activatedAt: true } })]);
+    const expired = Boolean(tenant.expiresAt && tenant.expiresAt <= new Date());
+    return { id: user.id, pointsBalance: user.pointsBalance, miniappName: setting?.miniappName ?? 'AI素材助手', totalResolves: successCount, todayResolves: todaySuccess, pointCost: setting?.pointCost ?? 1, notice: setting?.notice ?? null, service: { activated: Boolean(activation), activatedAt: activation?.activatedAt ?? null, tenantStatus: expired ? 'EXPIRED' : tenant.status, canResolve: Boolean(activation) && tenant.status === 'ACTIVE' && !expired } };
   }
 
   @Get('me/history') @UseGuards(SessionGuard)

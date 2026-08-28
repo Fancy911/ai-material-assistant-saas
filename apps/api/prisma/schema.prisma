@@ -38,9 +38,15 @@ enum ProviderStatus {
   ENABLED
   DISABLED
 }
+enum TenantActivationStatus {
+  UNUSED
+  ACTIVATED
+  REVOKED
+}
 
 model Tenant {
   id String @id @default(cuid())
+  publicCode String @unique
   name String
   status TenantStatus @default(ACTIVE)
   expiresAt DateTime?
@@ -58,6 +64,21 @@ model Tenant {
   settings TenantSetting?
   events Event[]
   audits AuditLog[]
+  activationCodes TenantActivationCode[]
+}
+
+model TenantActivationCode {
+  id String @id @default(cuid())
+  tenantId String
+  codeHash String @unique
+  codeHint String
+  status TenantActivationStatus @default(UNUSED)
+  createdById String
+  activatedById String?
+  createdAt DateTime @default(now())
+  activatedAt DateTime?
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@index([tenantId, status, createdAt])
 }
 
 model TenantCapability {

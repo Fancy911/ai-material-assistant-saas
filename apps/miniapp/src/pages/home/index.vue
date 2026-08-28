@@ -6,8 +6,9 @@ import { ensureSession, getMe, resolveMaterial } from '../../services/api';
 const input = ref('');
 const isParsing = ref(false);
 const points = ref(0);
+const canUseService = ref(false);
 const platform = computed(() => detectPlatform(input.value));
-const canResolve = computed(() => Boolean(platform.value) && !isParsing.value);
+const canResolve = computed(() => Boolean(platform.value) && !isParsing.value && canUseService.value && points.value > 0);
 const platforms = [
   { name: '豆包', icon: '/static/platform-icons/doubao.svg' },
   { name: '抖音', icon: '/static/platform-icons/douyin.svg' },
@@ -29,19 +30,21 @@ async function resolve() {
   isParsing.value = true;
   try {
     const job = await resolveMaterial(input.value);
-    points.value -= 1;
+    points.value = (await getMe()).pointsBalance;
     uni.navigateTo({ url: `/pages/result/index?id=${job.id}&platform=${job.platform}` });
   } catch (error) {
     const message = (error as { message?: string })?.message || '暂时没有解析成功，请检查链接或稍后重试';
     if (message.includes('NO_POINTS')) {
       uni.showModal({ title: '点数不足', content: '可使用兑换码补充点数；当前为免费内测。', confirmText: '去兑换', success: ({ confirm }) => { if (confirm) goMe(); } });
+    } else if (message.includes('TENANT_SERVICE_INACTIVE')) {
+      uni.showToast({ title: '服务尚未开通，请联系运营方完成授权', icon: 'none' });
     } else uni.showToast({ title: message, icon: 'none' });
   } finally { isParsing.value = false; }
 }
 function goMe() { uni.switchTab({ url: '/pages/me/index' }); }
 function goHistory() { uni.switchTab({ url: '/pages/history/index' }); }
 onMounted(async () => {
-  try { await ensureSession(); points.value = (await getMe()).pointsBalance; }
+  try { await ensureSession(); const me = await getMe(); points.value = me.pointsBalance; canUseService.value = me.service.canResolve; }
   catch { uni.showToast({ title: '服务连接失败，请检查 API', icon: 'none' }); }
 });
 </script>
@@ -60,8 +63,8 @@ onMounted(async () => {
       <view class="resolve-glow"></view>
       <view class="prompt-top"><view class="spark">✦</view><view><text class="prompt-kicker">AI 智能提取</text><text class="prompt-title">粘贴分享链接</text><text class="prompt-subtitle">视频、图文与文案一次整理好</text></view><text class="paste" @click="paste">一键粘贴</text></view>
       <view class="input-shell"><textarea :value="input" :maxlength="4000" auto-height placeholder="粘贴豆包、即梦、抖音、小红书、视频号等分享链接" @input="onInput" /></view>
-      <view class="recognition"><view class="recognition-dot" :class="{ active: platform }"/><text v-if="platform">已识别 {{ platformNames[platform] }} 链接</text><text v-else-if="input">请输入完整的分享链接</text><text v-else>支持 30+ 平台，无需手动选择</text></view>
-      <button class="primary" :class="{ disabled: !canResolve }" :loading="isParsing" @click="resolve">{{ isParsing ? '正在整理素材…' : '开始提取' }}</button>
+      <view class="recognition"><view class="recognition-dot" :class="{ active: platform && canUseService }"/><text v-if="!canUseService">服务尚未开通，请联系运营方</text><text v-else-if="!points">点数不足，去“我的”兑换后再试</text><text v-else-if="platform">已识别 {{ platformNames[platform] }} 链接</text><text v-else-if="input">请输入完整的分享链接</text><text v-else>支持 30+ 平台，无需手动选择</text></view>
+      <button class="primary" :class="{ disabled: !canResolve }" :loading="isParsing" @click="resolve">{{ isParsing ? '正在整理素材…' : !canUseService ? '等待服务开通' : !points ? '点数不足，去兑换' : '开始提取' }}</button>
     </view>
 
     <view class="recent"><view class="section-head"><text class="section-title">最近提取</text><text class="history-link" @click="goHistory">查看记录</text></view><view class="empty"><view class="empty-mark">✦</view><view><text class="empty-title">这里会出现你的素材</text><text class="empty-sub">提取后的图片、视频和文案都会保留在记录中</text></view></view></view>

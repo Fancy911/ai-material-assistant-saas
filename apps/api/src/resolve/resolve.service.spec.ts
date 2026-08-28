@@ -24,6 +24,7 @@ function setup(options: { points?: number; quota?: number; duplicate?: unknown; 
     user: { findUnique: jest.fn().mockResolvedValue({ id: 'user-1', status: 'ACTIVE', pointsBalance: 10 }) },
     tenantSetting: { findUnique: jest.fn().mockResolvedValue({ pointCost: 2 }) },
     tenantCapability: { findUnique: jest.fn().mockResolvedValue({ enabled: true }) },
+    tenantActivationCode: { findFirst: jest.fn().mockResolvedValue({ id: 'activation-1' }) },
     provider: { findUnique: jest.fn().mockResolvedValue(null) },
     resolveJob: {
       findFirst: jest.fn().mockResolvedValue(options.duplicate ?? null),
