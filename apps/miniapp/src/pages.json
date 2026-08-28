@@ -5,9 +5,9 @@
     { "path": "pages/history/index", "style": { "navigationStyle": "custom" } },
     { "path": "pages/me/index", "style": { "navigationStyle": "custom" } }
   ],
-  "tabBar": { "color": "#8D8A97", "selectedColor": "#6F3FF5", "backgroundColor": "#FFFFFF", "borderStyle": "white", "list": [
-    { "pagePath": "pages/home/index", "text": "首页" },
-    { "pagePath": "pages/history/index", "text": "记录" },
-    { "pagePath": "pages/me/index", "text": "我的" }
+  "tabBar": { "custom": true, "color": "#716D7A", "selectedColor": "#6F3FF5", "backgroundColor": "#FFFFFF", "borderStyle": "white", "list": [
+    { "pagePath": "pages/home/index", "text": "首页", "iconPath": "static/tab-icons/home.png", "selectedIconPath": "static/tab-icons/home-active.png" },
+    { "pagePath": "pages/history/index", "text": "记录", "iconPath": "static/tab-icons/history.png", "selectedIconPath": "static/tab-icons/history-active.png" },
+    { "pagePath": "pages/me/index", "text": "我的", "iconPath": "static/tab-icons/me.png", "selectedIconPath": "static/tab-icons/me-active.png" }
   ] }
 }

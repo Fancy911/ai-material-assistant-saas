@@ -1,0 +1,6 @@
+<view class="tabbar">
+  <navigator wx:for="{{tabs}}" wx:key="pagePath" class="tab {{selected === index ? 'active' : ''}}" url="{{item.pagePath}}" open-type="switchTab">
+    <view class="icon-wrap"><image src="{{selected === index ? item.activeIcon : item.icon}}" mode="aspectFit" /></view>
+    <text>{{item.text}}</text>
+  </navigator>
+</view>
