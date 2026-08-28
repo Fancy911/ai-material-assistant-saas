@@ -39,7 +39,7 @@ export class ResolveService {
         await tx.pointsLedger.create({ data: { tenantId, userId, delta: -cost, reason: 'RESOLVE_SUCCESS', refType: 'resolve_job', refId: job.id } });
         await tx.quotaLedger.create({ data: { tenantId, delta: -1, reason: 'RESOLVE_SUCCESS', refId: job.id } });
         await tx.resolveMedia.createMany({ data: result.media.map((item) => ({ jobId: job.id, type: item.type === 'image' ? 'IMAGE' : 'VIDEO', sourceUrlEnc: seal(item.sourceUrl, secret), metaJson: { width: item.width, height: item.height, sizeBytes: item.sizeBytes, mimeType: item.mimeType } as Prisma.InputJsonValue })) });
-        return tx.resolveJob.update({ where: { id: job.id }, data: { status: 'SUCCESS', mediaType: result.mediaType, title: result.title, provider: result.provider, latencyMs, completedAt: new Date() }, include: { media: true } });
+        return tx.resolveJob.update({ where: { id: job.id }, data: { status: 'SUCCESS', mediaType: result.mediaType, title: result.title, content: result.content, provider: result.provider, latencyMs, completedAt: new Date() }, include: { media: true } });
       });
     } catch (error) {
       const code = error instanceof ForbiddenException ? String(error.message) : error instanceof Error && error.name === 'TimeoutError' ? 'PROVIDER_TIMEOUT' : error instanceof Error && ['PROVIDER_NOT_CONFIGURED', 'PROVIDER_INTEGRATION_PENDING'].includes(error.message) ? error.message : 'PROVIDER_ERROR';

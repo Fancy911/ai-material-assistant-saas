@@ -14,7 +14,7 @@ export async function ensureSession(force = false) {
   const result = await request<{ accessToken: string }>('/api/auth/wechat-login', 'POST', { code }, false); uni.setStorageSync('access_token', result.accessToken); return result.accessToken;
 }
 export async function resolveMaterial(input: string) { await ensureSession(); return request<{ id: string; platform: string; status: string }>('/api/resolve', 'POST', { input, idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}` }); }
-export async function getJob(id: string) { await ensureSession(); return request<{ id: string; platform: string; status: string; title: string | null; mediaType: string | null; media: { id: string; type: string; proxyUrl: string; metaJson: Record<string, unknown> | null }[] }>(`/api/resolve/${id}`); }
+export async function getJob(id: string) { await ensureSession(); return request<{ id: string; platform: string; status: string; title: string | null; content: string | null; mediaType: string | null; media: { id: string; type: string; proxyUrl: string; metaJson: Record<string, unknown> | null }[] }>(`/api/resolve/${id}`); }
 export async function getMe() { await ensureSession(); return request<{ pointsBalance: number; totalResolves: number; miniappName: string }>('/api/me'); }
 export async function getHistory() { await ensureSession(); return request<{ id: string; platform: string; status: string; mediaType: string | null; title: string | null; createdAt: string }[]>('/api/me/history'); }
 export async function redeemCode(code: string) { await ensureSession(); return request<{ pointsAdded: number; pointsBalance: number }>('/api/redeem', 'POST', { code }); }

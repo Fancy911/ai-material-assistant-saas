@@ -151,6 +151,7 @@ model ResolveJob {
   status ResolveStatus @default(PENDING)
   mediaType String?
   title String?
+  content String?
   errorCode String?
   provider String?
   idempotencyKey String?
