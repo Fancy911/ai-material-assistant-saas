@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { Prisma, ResolveStatus } from '@prisma/client';
+import { Prisma, Provider, ResolveStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { seal, signMedia, urlHash } from '../common/security';
 import { CanxiangProvider, extractSupportedUrl, MockProvider, ResolverProvider, ZhilingProvider } from './providers';
@@ -7,13 +7,14 @@ import { CanxiangProvider, extractSupportedUrl, MockProvider, ResolverProvider, 
 @Injectable()
 export class ResolveService {
   constructor(private readonly prisma: PrismaService, private readonly mock: MockProvider, private readonly canxiang: CanxiangProvider, private readonly zhiling: ZhilingProvider) {}
-  private async provider(): Promise<ResolverProvider> {
-    if (process.env.RESOLVER_MODE === 'mock') return this.mock;
+  private async provider(): Promise<{ adapter: ResolverProvider; provider: Provider | null }> {
+    if (process.env.RESOLVER_MODE === 'mock') return { adapter: this.mock, provider: await this.prisma.provider.findUnique({ where: { code: 'mock' } }) };
     const active = await this.prisma.provider.findFirst({ where: { status: 'ENABLED' }, orderBy: [{ priority: 'asc' }, { code: 'asc' }] });
-    if (active?.code === 'zhiling') return this.zhiling;
-    if (active?.code === 'canxiang') return this.canxiang;
+    if (active?.code === 'zhiling') return { adapter: this.zhiling, provider: active };
+    if (active?.code === 'canxiang') return { adapter: this.canxiang, provider: active };
     throw new Error('PROVIDER_NOT_CONFIGURED');
   }
+  private providerCost(provider: Provider | null, platform: string) { const config = provider?.costConfig as Record<string, unknown> | null; const value = config?.[platform] ?? config?.pricePerCall ?? 0; const cost = Number(value); return Number.isFinite(cost) && cost >= 0 ? cost : 0; }
   async submit(tenantId: string, userId: string, input: string, idempotencyKey?: string) {
     const matched = extractSupportedUrl(input); if (!matched) throw new ForbiddenException('UNSUPPORTED_PLATFORM');
     const now = new Date(); const [tenant, user, setting, cap] = await Promise.all([this.prisma.tenant.findUnique({ where: { id: tenantId } }), this.prisma.user.findUnique({ where: { id: userId } }), this.prisma.tenantSetting.findUnique({ where: { tenantId } }), this.prisma.tenantCapability.findUnique({ where: { tenantId_capability: { tenantId, capability: matched.platform } } })]);
@@ -26,10 +27,10 @@ export class ResolveService {
     if (duplicate) return duplicate;
     if (idempotencyKey) { const previous = await this.prisma.resolveJob.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey } }, include: { media: true } }); if (previous) return previous; }
     const job = await this.prisma.resolveJob.create({ data: { tenantId, userId, platform: matched.platform, urlHash: fingerprint, urlHost: new URL(matched.url).host, status: 'RUNNING', idempotencyKey } });
-    const started = Date.now();
+    const started = Date.now(); let selected: Provider | null = null;
     try {
-      const result = await (await this.provider()).resolve(matched.platform, matched.url); const latencyMs = Date.now() - started;
-      if (!result.success || !result.media.length) { return this.prisma.resolveJob.update({ where: { id: job.id }, data: { status: 'FAILED', errorCode: result.errorCode || 'MEDIA_NOT_FOUND', provider: result.provider, latencyMs, completedAt: new Date() } }); }
+      const current = await this.provider(); selected = current.provider; const result = await current.adapter.resolve(matched.platform, matched.url); const latencyMs = Date.now() - started;
+      if (!result.success || !result.media.length) { return this.prisma.$transaction(async (tx) => { const failed = await tx.resolveJob.update({ where: { id: job.id }, data: { status: 'FAILED', errorCode: result.errorCode || 'MEDIA_NOT_FOUND', provider: result.provider, latencyMs, completedAt: new Date() } }); if (selected) await tx.providerCall.create({ data: { jobId: job.id, providerId: selected.id, capability: matched.platform, status: 'FAILED', upstreamStatus: Number(result.rawCode) || null, latencyMs, costEstimate: this.providerCost(selected, matched.platform) } }); return failed; }); }
       const cost = setting?.pointCost ?? 1; const secret = process.env.MEDIA_PROXY_SIGNING_KEY || 'development-only-change-me';
       return await this.prisma.$transaction(async (tx) => {
         const userDebit = await tx.user.updateMany({ where: { id: userId, tenantId, status: 'ACTIVE', pointsBalance: { gte: cost } }, data: { pointsBalance: { decrement: cost }, lastActiveAt: new Date() } });
@@ -39,11 +40,12 @@ export class ResolveService {
         await tx.pointsLedger.create({ data: { tenantId, userId, delta: -cost, reason: 'RESOLVE_SUCCESS', refType: 'resolve_job', refId: job.id } });
         await tx.quotaLedger.create({ data: { tenantId, delta: -1, reason: 'RESOLVE_SUCCESS', refId: job.id } });
         await tx.resolveMedia.createMany({ data: result.media.map((item) => ({ jobId: job.id, type: item.type === 'image' ? 'IMAGE' : 'VIDEO', sourceUrlEnc: seal(item.sourceUrl, secret), metaJson: { width: item.width, height: item.height, sizeBytes: item.sizeBytes, mimeType: item.mimeType } as Prisma.InputJsonValue })) });
+        if (selected) await tx.providerCall.create({ data: { jobId: job.id, providerId: selected.id, capability: matched.platform, status: 'SUCCESS', upstreamStatus: Number(result.rawCode) || null, latencyMs, costEstimate: this.providerCost(selected, matched.platform) } });
         return tx.resolveJob.update({ where: { id: job.id }, data: { status: 'SUCCESS', mediaType: result.mediaType, title: result.title, content: result.content, provider: result.provider, latencyMs, completedAt: new Date() }, include: { media: true } });
       });
     } catch (error) {
       const code = error instanceof ForbiddenException ? String(error.message) : error instanceof Error && error.name === 'TimeoutError' ? 'PROVIDER_TIMEOUT' : error instanceof Error && ['PROVIDER_NOT_CONFIGURED', 'PROVIDER_INTEGRATION_PENDING'].includes(error.message) ? error.message : 'PROVIDER_ERROR';
-      await this.prisma.resolveJob.update({ where: { id: job.id }, data: { status: 'FAILED', errorCode: code, latencyMs: Date.now() - started, completedAt: new Date() } });
+      const latencyMs = Date.now() - started; await this.prisma.$transaction(async (tx) => { await tx.resolveJob.update({ where: { id: job.id }, data: { status: 'FAILED', errorCode: code, provider: selected?.code, latencyMs, completedAt: new Date() } }); if (selected) await tx.providerCall.create({ data: { jobId: job.id, providerId: selected.id, capability: matched.platform, status: 'FAILED', latencyMs, costEstimate: this.providerCost(selected, matched.platform) } }); });
       if (error instanceof ForbiddenException) throw error; throw new ServiceUnavailableException(code);
     }
   }
