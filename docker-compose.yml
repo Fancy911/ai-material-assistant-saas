@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ai_material
       POSTGRES_PASSWORD: ai_material_dev_password
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +24,7 @@ services:
       DATABASE_URL: postgresql://ai_material:ai_material_dev_password@postgres:5432/ai_material?schema=public
       PORT: "3000"
     ports:
-      - "3000:3000"
+      - "${API_HOST_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy

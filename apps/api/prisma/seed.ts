@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import argon2 from 'argon2';
+import * as argon2 from 'argon2';
 import { createHash } from 'node:crypto';
 const prisma = new PrismaClient();
 async function main() {

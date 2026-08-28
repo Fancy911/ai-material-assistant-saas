@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
-import argon2 from 'argon2';
+import * as argon2 from 'argon2';
 import { Prisma, ProviderStatus, RedeemStatus, TenantStatus, UserStatus } from '@prisma/client';
 import { CurrentSession, requireRole, Session, SessionGuard } from '../auth/auth';
 import { seal } from '../common/security';

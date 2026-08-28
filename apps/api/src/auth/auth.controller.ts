@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, UseGuards, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import argon2 from 'argon2';
+import * as argon2 from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CurrentSession, Session, SessionGuard } from './auth';
