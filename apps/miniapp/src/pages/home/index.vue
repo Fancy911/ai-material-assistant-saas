@@ -2,26 +2,68 @@
 import { computed, onMounted, ref } from 'vue';
 import { detectPlatform, extractUrl, platformNames } from '../../services/platform';
 import { ensureSession, getMe, resolveMaterial } from '../../services/api';
-const input = ref(''); const isParsing = ref(false); const points = ref(0); const platform = computed(() => detectPlatform(input.value));
+
+const input = ref('');
+const isParsing = ref(false);
+const points = ref(0);
+const platform = computed(() => detectPlatform(input.value));
 const canResolve = computed(() => Boolean(platform.value) && !isParsing.value);
-function paste() { uni.getClipboardData({ success: ({ data }) => { input.value = data; }, fail: () => uni.showToast({ title: '请手动粘贴链接', icon: 'none' }) }); }
-function onInput(event: Event) { const detail = (event as CustomEvent<{ value?: string }>).detail; input.value = detail?.value || (event.target as HTMLTextAreaElement | null)?.value || ''; }
-async function resolve() { if (!canResolve.value) return; isParsing.value = true; try { const job = await resolveMaterial(input.value); points.value -= 1; uni.navigateTo({ url: `/pages/result/index?id=${job.id}&platform=${job.platform}` }); } catch (error) { const message = (error as { message?: string })?.message || '暂时没有解析成功，请检查链接或稍后重试'; if (message.includes('NO_POINTS')) { uni.showModal({ title: '点数不足', content: '可使用兑换码补充点数；当前为免费内测。', confirmText: '去兑换', success: ({ confirm }) => { if (confirm) goMe(); } }); } else uni.showToast({ title: message, icon: 'none' }); } finally { isParsing.value = false; } }
+const platforms = [['豆', '豆包'], ['抖', '抖音'], ['红', '小红书'], ['微', '视频号'], ['即', '即梦'], ['快', '快手']];
+
+function paste() {
+  uni.getClipboardData({ success: ({ data }) => { input.value = data; }, fail: () => uni.showToast({ title: '请手动粘贴链接', icon: 'none' }) });
+}
+function onInput(event: Event) {
+  const detail = (event as CustomEvent<{ value?: string }>).detail;
+  input.value = detail?.value || (event.target as HTMLTextAreaElement | null)?.value || '';
+}
+async function resolve() {
+  if (!canResolve.value) return;
+  isParsing.value = true;
+  try {
+    const job = await resolveMaterial(input.value);
+    points.value -= 1;
+    uni.navigateTo({ url: `/pages/result/index?id=${job.id}&platform=${job.platform}` });
+  } catch (error) {
+    const message = (error as { message?: string })?.message || '暂时没有解析成功，请检查链接或稍后重试';
+    if (message.includes('NO_POINTS')) {
+      uni.showModal({ title: '点数不足', content: '可使用兑换码补充点数；当前为免费内测。', confirmText: '去兑换', success: ({ confirm }) => { if (confirm) goMe(); } });
+    } else uni.showToast({ title: message, icon: 'none' });
+  } finally { isParsing.value = false; }
+}
 function goMe() { uni.switchTab({ url: '/pages/me/index' }); }
-onMounted(async () => { try { await ensureSession(); points.value = (await getMe()).pointsBalance; } catch { uni.showToast({ title: '服务连接失败，请检查 API', icon: 'none' }); } });
+function goHistory() { uni.switchTab({ url: '/pages/history/index' }); }
+onMounted(async () => {
+  try { await ensureSession(); points.value = (await getMe()).pointsBalance; }
+  catch { uni.showToast({ title: '服务连接失败，请检查 API', icon: 'none' }); }
+});
 </script>
 
 <template>
   <view class="screen">
-    <view class="orb orb-one" /><view class="orb orb-two" />
-    <view class="hero"><view class="eyebrow">LINK · MEDIA · HELPER</view><text class="title">AI素材助手</text><text class="subtitle">链接提取高清原图 / 视频素材</text></view>
-    <view class="platform-panel"><text class="section-label">支持平台</text><view class="platforms"><view v-for="item in [['豆','豆包'],['抖','抖音'],['红','小红书'],['微','视频号'],['即','即梦'],['快','快手']]" :key="item[1]" class="platform"><view class="mark">{{ item[0] }}</view><text>{{ item[1] }}</text></view></view><text class="platform-more">以及千问、B站、西瓜、微博等 30+ 平台</text></view>
-    <view class="resolve-card"><view class="card-top"><text>粘贴分享链接</text><text class="paste" @click="paste">粘贴</text></view><textarea :value="input" :maxlength="4000" auto-height placeholder="粘贴视频号、豆包、即梦、抖音、快手、小红书等分享链接" @input="onInput" /><view class="hint"><text v-if="platform">已识别：{{ platformNames[platform] }}</text><text v-else-if="input">请输入完整分享链接</text><text v-else>自动识别，无需手动选择平台</text></view><button class="primary" :class="{ disabled: !canResolve }" :loading="isParsing" @click="resolve">{{ isParsing ? '正在解析素材…' : '一键提取素材' }}</button></view>
-    <view class="quota"><view><text class="quota-number">{{ points }}</text><text> 我的点数</text></view><text class="redeem" @click="goMe">兑换码 ›</text></view>
-    <view class="recent"><text class="section-label">最近提取</text><view class="empty"><text class="empty-icon">✦</text><text>还没有提取记录</text><text class="empty-sub">粘贴一条分享链接开始吧</text></view></view>
+    <view class="assistant-head">
+      <view class="assistant-mark"><text>AI</text></view>
+      <view class="head-copy"><text class="eyebrow">AI MATERIAL ASSISTANT</text><text class="title">嗨，帮你提取素材</text><text class="subtitle">粘贴分享链接，我来整理高清图片、视频和文案。</text></view>
+      <view class="points-badge" @click="goMe"><b>{{ points }}</b><text>点</text></view>
+    </view>
+
+    <view class="resolve-panel">
+      <view class="prompt-top"><view class="spark">✦</view><view><text class="prompt-title">把链接交给我</text><text class="prompt-subtitle">自动识别平台与素材类型</text></view><text class="paste" @click="paste">粘贴</text></view>
+      <textarea :value="input" :maxlength="4000" auto-height placeholder="粘贴豆包、即梦、抖音、小红书、视频号等分享链接" @input="onInput" />
+      <view class="recognition"><view class="recognition-dot" :class="{ active: platform }"/><text v-if="platform">已识别 {{ platformNames[platform] }} 链接</text><text v-else-if="input">请输入完整的分享链接</text><text v-else>支持 30+ 平台，无需手动选择</text></view>
+      <button class="primary" :class="{ disabled: !canResolve }" :loading="isParsing" @click="resolve">{{ isParsing ? '正在整理素材…' : '开始提取' }}</button>
+    </view>
+
+    <view class="platform-section"><view class="section-head"><text class="section-title">可识别的平台</text><text>持续扩展中</text></view><scroll-view class="platform-scroll" scroll-x enable-flex><view class="platform-list"><view v-for="item in platforms" :key="item[1]" class="platform"><view class="mark">{{ item[0] }}</view><text>{{ item[1] }}</text></view><view class="platform more"><view class="mark">30+</view><text>更多平台</text></view></view></scroll-view></view>
+
+    <view class="recent"><view class="section-head"><text class="section-title">最近提取</text><text class="history-link" @click="goHistory">查看记录</text></view><view class="empty"><view class="empty-mark">✦</view><view><text class="empty-title">这里会出现你的素材</text><text class="empty-sub">提取后的图片、视频和文案都会保留在记录中</text></view></view></view>
   </view>
 </template>
 
 <style scoped>
-.screen{min-height:100vh;padding:calc(76rpx + var(--status-bar-height)) 36rpx 160rpx;box-sizing:border-box;position:relative;overflow:hidden}.orb{position:absolute;border-radius:50%;filter:blur(3px);opacity:.22}.orb-one{width:320rpx;height:320rpx;background:#a88cf8;right:-130rpx;top:-100rpx}.orb-two{width:220rpx;height:220rpx;background:#ffb8cc;left:-110rpx;top:350rpx}.hero,.platform-panel,.resolve-card,.quota,.recent{position:relative}.eyebrow,.section-label{font-size:21rpx;letter-spacing:2rpx;color:var(--muted);font-weight:700}.title{display:block;font-family:serif;font-size:68rpx;letter-spacing:2rpx;margin-top:16rpx}.subtitle{display:block;margin-top:14rpx;color:#696374;font-size:28rpx}.platform-panel{background:var(--surface);border:1rpx solid var(--line);border-radius:32rpx;margin-top:62rpx;padding:30rpx}.platforms{display:grid;grid-template-columns:repeat(6,1fr);gap:10rpx;margin-top:28rpx}.platform{font-size:19rpx;text-align:center;color:#4a4554}.mark{width:64rpx;height:64rpx;margin:0 auto 10rpx;display:grid;place-items:center;border-radius:20rpx;background:var(--violet-soft);color:var(--violet);font-size:25rpx;font-weight:800}.platform-more{display:block;margin-top:22rpx;text-align:center;font-size:21rpx;color:#928c9d}.resolve-card{margin-top:28rpx;background:var(--surface);border-radius:32rpx;padding:30rpx;box-shadow:0 18rpx 48rpx rgba(55,37,90,.08)}.card-top{display:flex;justify-content:space-between;font-size:28rpx;font-weight:700}.paste,.redeem{color:var(--violet)}textarea{width:100%;min-height:142rpx;margin-top:24rpx;font-size:27rpx;line-height:1.6;color:var(--ink)}.hint{font-size:22rpx;color:#928c9d;margin-top:16rpx;min-height:30rpx}.primary{margin-top:28rpx;border-radius:18rpx;background:var(--violet);color:#fff;font-size:30rpx;font-weight:700;height:96rpx;line-height:96rpx}.primary.disabled{opacity:.4}.quota{display:flex;justify-content:space-between;align-items:center;padding:32rpx 10rpx;font-size:25rpx}.quota-number{font-size:46rpx;font-weight:800;color:var(--violet)}.recent{margin-top:18rpx}.empty{margin-top:22rpx;border:2rpx dashed #dedbe8;border-radius:28rpx;padding:50rpx;display:flex;flex-direction:column;align-items:center;color:#7f798c;font-size:26rpx}.empty-icon{font-size:44rpx;color:#b09aff;margin-bottom:8rpx}.empty-sub{font-size:22rpx;margin-top:8rpx;color:#a9a4b1}
+.screen{min-height:100vh;padding:calc(42rpx + var(--status-bar-height)) 32rpx 152rpx;box-sizing:border-box;background:linear-gradient(180deg,#f4f8ff 0,#f7faff 300rpx,var(--canvas) 100%)}
+.assistant-head{display:flex;align-items:flex-start;gap:18rpx}.assistant-mark{width:70rpx;height:70rpx;flex:none;border-radius:24rpx;display:grid;place-items:center;background:#2878f0;color:#fff;box-shadow:0 12rpx 28rpx rgba(40,120,240,.18)}.assistant-mark text{font-size:26rpx;font-weight:800;letter-spacing:-1rpx}.head-copy{min-width:0;flex:1}.eyebrow{display:block;color:#6c8fca;font-size:19rpx;letter-spacing:1.8rpx;font-weight:800}.title{display:block;margin-top:10rpx;color:var(--ink);font-size:47rpx;line-height:1.18;font-weight:800;letter-spacing:-1rpx}.subtitle{display:block;margin-top:13rpx;color:var(--muted);font-size:25rpx;line-height:1.5}.points-badge{margin-top:4rpx;display:flex;align-items:baseline;gap:4rpx;padding:12rpx 15rpx;border:1rpx solid #d7e6ff;border-radius:16rpx;background:rgba(255,255,255,.74);color:#2d6dd1}.points-badge b{font-size:27rpx}.points-badge text{font-size:20rpx}
+.resolve-panel{margin-top:42rpx;padding:28rpx;border:1rpx solid #dce9fb;border-radius:28rpx;background:var(--surface);box-shadow:0 16rpx 42rpx rgba(55,106,181,.09)}.prompt-top{display:flex;align-items:center;gap:15rpx}.spark{width:48rpx;height:48rpx;display:grid;place-items:center;border-radius:16rpx;background:var(--violet-soft);color:var(--violet);font-size:25rpx}.prompt-top view:nth-child(2){min-width:0;flex:1}.prompt-title,.prompt-subtitle{display:block}.prompt-title{font-size:28rpx;font-weight:800}.prompt-subtitle{margin-top:4rpx;color:var(--muted);font-size:21rpx}.paste{padding:9rpx 14rpx;border-radius:12rpx;background:var(--violet-soft);color:var(--violet);font-size:22rpx;font-weight:700}textarea{width:100%;min-height:150rpx;margin-top:25rpx;font-size:27rpx;line-height:1.65;color:var(--ink)}.recognition{display:flex;align-items:center;gap:10rpx;min-height:30rpx;color:var(--muted);font-size:22rpx}.recognition-dot{width:10rpx;height:10rpx;border-radius:50%;background:#b9c5d7}.recognition-dot.active{background:#42b883;box-shadow:0 0 0 6rpx #e4f8ef}.primary{margin-top:27rpx;height:94rpx;line-height:94rpx;border-radius:18rpx;background:var(--violet);color:#fff;font-size:29rpx;font-weight:700;box-shadow:0 12rpx 24rpx rgba(40,120,240,.18)}.primary.disabled{opacity:.42;box-shadow:none}
+.platform-section,.recent{margin-top:42rpx}.section-head{display:flex;align-items:center;justify-content:space-between;margin:0 4rpx 17rpx;color:var(--muted);font-size:21rpx}.section-title{color:var(--ink);font-size:28rpx;font-weight:800}.history-link{color:var(--violet);font-weight:700}.platform-scroll{width:calc(100% + 32rpx);white-space:nowrap}.platform-list{display:flex;gap:14rpx;padding-right:36rpx}.platform{width:104rpx;flex:none;padding:16rpx 4rpx;border:1rpx solid var(--line);border-radius:20rpx;background:var(--surface);text-align:center}.platform .mark{width:44rpx;height:44rpx;margin:0 auto 9rpx;display:grid;place-items:center;border-radius:14rpx;background:#f1f6ff;color:#3778d8;font-size:20rpx;font-weight:800}.platform text{color:#52627a;font-size:20rpx}.platform.more .mark{font-size:17rpx;background:#fff5e9;color:#d97a20}
+.empty{display:flex;align-items:center;gap:19rpx;padding:25rpx 22rpx;border-top:1rpx solid var(--line);border-bottom:1rpx solid var(--line);background:rgba(255,255,255,.58)}.empty-mark{width:60rpx;height:60rpx;flex:none;display:grid;place-items:center;border-radius:18rpx;background:#edf4ff;color:var(--violet);font-size:27rpx}.empty-title,.empty-sub{display:block}.empty-title{font-size:25rpx;color:#31415a;font-weight:700}.empty-sub{margin-top:7rpx;color:var(--muted);font-size:20rpx;line-height:1.45}
 </style>
