@@ -1,5 +1,6 @@
 const buildEnv = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_TENANT_CODE?: string } }).env;
-const baseUrl = buildEnv?.VITE_API_BASE_URL || 'http://127.0.0.1:3000';
+// Docker local development maps the API to 3100; production must provide VITE_API_BASE_URL with the HTTPS domain.
+const baseUrl = buildEnv?.VITE_API_BASE_URL || 'http://127.0.0.1:3100';
 const tenantCode = buildEnv?.VITE_TENANT_CODE || 'baoxiaoyin';
 type ApiError = { message?: string; code?: string; statusCode?: number };
 function rawRequest<T>(path: string, method: 'GET' | 'POST' = 'GET', data?: Record<string, unknown>): Promise<T> {
