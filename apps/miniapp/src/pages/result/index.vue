@@ -15,6 +15,7 @@ const previewFailed = ref(false);
 const activeImage = ref(0);
 const savingCurrent = ref(false);
 const savingAll = ref(false);
+const saveProgress = ref(0);
 
 const imageMedia = computed(() => mediaList.value.filter((item) => item.type === 'IMAGE'));
 const isImageResult = computed(() => imageMedia.value.length > 0);
@@ -59,8 +60,9 @@ async function saveVideoMaterial() {
 async function saveAll() {
   if (imageMedia.value.length < 2 || savingAll.value) return;
   savingAll.value = true;
+  saveProgress.value = 0;
   let saved = 0;
-  for (const item of imageMedia.value) { try { await saveMedia(item); saved += 1; } catch { /* Continue saving the remaining images. */ } }
+  for (const item of imageMedia.value) { try { await saveMedia(item); saved += 1; } catch { /* Continue saving the remaining images. */ } finally { saveProgress.value += 1; } }
   savingAll.value = false;
   uni.showToast({ title: saved === imageMedia.value.length ? `已保存全部 ${saved} 张` : `已保存 ${saved}/${imageMedia.value.length} 张`, icon: 'none' });
 }
@@ -82,7 +84,7 @@ function copyLink() { if (videoMedia.value) uni.setClipboardData({ data: videoMe
     <view class="facts"><view><text>素材类型</text><b>{{ isImageResult ? '图文' : '视频' }}</b></view><view><text>素材数量</text><b>{{ mediaList.length || 1 }}</b></view><view><text>解析状态</text><b>{{ isSuccess ? '成功' : '处理中' }}</b></view></view>
     <view v-if="hasText" class="text-card"><view class="text-card-head"><text>标题与正文</text><text class="copy-text" @click="copyText">复制文本</text></view><text v-if="title" class="material-title">{{ title }}</text><text v-if="content" class="material-content">{{ content }}</text></view>
 
-    <view class="actions"><button v-if="isImageResult" class="save" :disabled="!isSuccess" :loading="savingCurrent" @click="saveCurrent">保存本张</button><button v-else class="save" :disabled="!isSuccess" :loading="savingCurrent" @click="saveVideoMaterial">保存到相册</button><button v-if="isImageResult && imageMedia.length > 1" class="copy" :disabled="!isSuccess" :loading="savingAll" @click="saveAll">一键保存全部 {{ imageMedia.length }} 张</button><button v-else-if="!isImageResult" class="copy" :disabled="!isSuccess" @click="copyLink">复制链接</button><button class="again" @click="home">继续提取</button></view>
+    <view class="actions"><button v-if="isImageResult" class="save" :disabled="!isSuccess || savingAll" :loading="savingCurrent" @click="saveCurrent">保存本张</button><button v-else class="save" :disabled="!isSuccess" :loading="savingCurrent" @click="saveVideoMaterial">保存到相册</button><button v-if="isImageResult && imageMedia.length > 1" class="copy" :disabled="!isSuccess || savingCurrent" :loading="savingAll" @click="saveAll">{{ savingAll ? `正在保存 ${saveProgress}/${imageMedia.length} 张` : `一键保存全部 ${imageMedia.length} 张` }}</button><button v-else-if="!isImageResult" class="copy" :disabled="!isSuccess" @click="copyLink">复制链接</button><button class="again" @click="home">继续提取</button></view>
     <text class="note">解析成功后已扣除 1 点；保存失败不会再次扣点</text>
   </view>
 </template>
